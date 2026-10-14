@@ -178,10 +178,18 @@ object StreamAutoPlaySelector {
                 }
             }
         }
+        // Custom: If in REGEX_MATCH mode and no stream matched the regex, do NOT auto-play any stream
+        if (mode == StreamAutoPlayMode.REGEX_MATCH && matchingStreams.isEmpty()) {
+            return StreamAutoPlayEvaluation()
+        }
         if (matchingStreams.isEmpty() && preferredStream == null) return StreamAutoPlayEvaluation()
 
         val readyStreams = buildList {
-            preferredStream?.let(::add)
+            if (mode != StreamAutoPlayMode.REGEX_MATCH) {
+                preferredStream?.let(::add)
+            } else if (preferredStream != null && preferredStream in matchingStreams) {
+                add(preferredStream)
+            }
             matchingStreams
                 .filter { it.isAutoPlayable(debridEnabled, activeResolverProviderId) }
                 .filterNot { it == preferredStream }
