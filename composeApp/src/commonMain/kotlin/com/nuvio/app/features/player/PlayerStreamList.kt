@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -45,6 +47,11 @@ internal fun PlayerStreamList(
     ),
     currentStreamUrl: String? = null,
     currentStreamName: String? = null,
+    currentStreamSubtitle: String? = null,
+    currentTorrentInfoHash: String? = null,
+    currentTorrentFileIdx: Int? = null,
+    currentTorrentFilename: String? = null,
+    currentProviderName: String? = null,
     currentLabel: String? = null,
 ) {
     val debridSettings by remember {
@@ -89,8 +96,28 @@ internal fun PlayerStreamList(
         else -> {
             val streamKeys = remember(streams) { streams.stablePlayerKeys() }
             val formatStreamSize = rememberStreamSizeLabelFormat()
+            val streamListState = rememberLazyListState()
+            val currentStreamIndex = remember(streams, currentStreamUrl, currentStreamName, currentStreamSubtitle, currentTorrentInfoHash) {
+                streams.indexOfFirst {
+                    it.isCurrentPlayerStream(
+                        currentUrl = currentStreamUrl,
+                        currentName = currentStreamName,
+                        currentSubtitle = currentStreamSubtitle,
+                        currentInfoHash = currentTorrentInfoHash,
+                        currentFileIdx = currentTorrentFileIdx,
+                        currentFilename = currentTorrentFilename,
+                        currentProvider = currentProviderName,
+                    )
+                }
+            }
+            LaunchedEffect(currentStreamIndex, streamsUiState.isAnyLoading) {
+                if (!streamsUiState.isAnyLoading && currentStreamIndex >= 0) {
+                    streamListState.scrollToItem(currentStreamIndex)
+                }
+            }
             CompositionLocalProvider(LocalStreamSizeLabelFormat provides formatStreamSize) {
             LazyColumn(
+                state = streamListState,
                 modifier = modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = contentPadding,
@@ -107,7 +134,15 @@ internal fun PlayerStreamList(
                         showFileSizeBadges = streamBadgeSettings.showFileSizeBadges,
                         showAddonLogo = streamBadgeSettings.showAddonLogo,
                         badgePlacement = streamBadgeSettings.badgePlacement,
-                        isCurrent = stream.isCurrentPlayerStream(currentStreamUrl, currentStreamName),
+                        isCurrent = stream.isCurrentPlayerStream(
+                            currentUrl = currentStreamUrl,
+                            currentName = currentStreamName,
+                            currentSubtitle = currentStreamSubtitle,
+                            currentInfoHash = currentTorrentInfoHash,
+                            currentFileIdx = currentTorrentFileIdx,
+                            currentFilename = currentTorrentFilename,
+                            currentProvider = currentProviderName,
+                        ),
                         currentLabel = currentLabel,
                         onClick = { onStreamSelected(stream) },
                     )
