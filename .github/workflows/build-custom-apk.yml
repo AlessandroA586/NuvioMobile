@@ -1,0 +1,73 @@
+name: Build Custom Nuvio APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cmp-rewrite
+    paths:
+      - 'composeApp/**'
+      - 'androidApp/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Generate Release Keystore and Local Properties
+        run: |
+          keystore_path="${RUNNER_TEMP}/nuvio-custom.jks"
+          keytool -genkey -v -keystore "${keystore_path}" -keyalg RSA -keysize 2048 -validity 10000             -alias nuvio -storepass nuviopassword -keypass nuviopassword             -dname "CN=Juansher, OU=NuvioCustom, O=Juansher, L=City, S=State, C=US"
+          
+          cat <<EOF > local.properties
+          NUVIO_RELEASE_STORE_FILE=${keystore_path}
+          NUVIO_RELEASE_STORE_PASSWORD=nuviopassword
+          NUVIO_RELEASE_KEY_ALIAS=nuvio
+          NUVIO_RELEASE_KEY_PASSWORD=nuviopassword
+          EOF
+
+      - name: Build Android Full Release APK
+        run: ./gradlew :androidApp:assembleFullRelease -Pnuvio.app.versionName="1.0" --stacktrace
+
+      - name: Locate and Rename APK
+        run: |
+          mkdir -p dist
+          find androidApp/build/outputs/apk/full/release -name "*.apk" -exec cp {} dist/ \;
+          ls -la dist/
+          # Create convenient universal name
+          cp dist/*.apk dist/Nuvio-Juansher-v1.0.apk || true
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete v1.0 --yes --repo "${{ github.repository }}" || true
+          git tag -d v1.0 || true
+          git push origin :refs/tags/v1.0 || true
+
+          gh release create v1.0 dist/*.apk \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.ref_name }}" \
+            --title "Nuvio Custom v1.0 (Juansher)" \
+            --notes "Versión personalizada de NuvioMobile v1.0 para teléfono y tablet.
+          
+          ### Mejoras incluidas:
+          - Filtro Regex estricto: Si una película no contiene audio en español, se cancela la reproducción automática y te muestra la lista de enlaces en pantalla.
+          - Actualizador automático configurado para buscar actualizaciones en AlessandroA586/NuvioMobile.
+          - Etiqueta personalizada 'Juansher | V1.0' en Ajustes."
