@@ -2,6 +2,7 @@ package com.nuvio.app.features.player
 
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.only
@@ -50,7 +51,7 @@ internal data class PlayerLayoutMetrics(
                     metadataSize = 14.dp.value.sp,
                     centerGap = 112.dp,
                     centerLift = 24.dp,
-                    sliderBottomOffset = 28.dp,
+                    sliderBottomOffset = 12.dp,
                     sliderTouchHeight = 28.dp,
                     sliderScaleY = 0.72f,
                     timeSize = 14.dp.value.sp,
@@ -68,7 +69,7 @@ internal data class PlayerLayoutMetrics(
                     metadataSize = 13.dp.value.sp,
                     centerGap = 88.dp,
                     centerLift = 18.dp,
-                    sliderBottomOffset = 24.dp,
+                    sliderBottomOffset = 8.dp,
                     sliderTouchHeight = 26.dp,
                     sliderScaleY = 0.74f,
                     timeSize = 13.dp.value.sp,
@@ -86,7 +87,7 @@ internal data class PlayerLayoutMetrics(
                     metadataSize = 12.dp.value.sp,
                     centerGap = 72.dp,
                     centerLift = 14.dp,
-                    sliderBottomOffset = 20.dp,
+                    sliderBottomOffset = 12.dp,
                     sliderTouchHeight = 24.dp,
                     sliderScaleY = 0.78f,
                     timeSize = 12.dp.value.sp,
@@ -104,7 +105,7 @@ internal data class PlayerLayoutMetrics(
                     metadataSize = 12.dp.value.sp,
                     centerGap = 56.dp,
                     centerLift = 10.dp,
-                    sliderBottomOffset = 16.dp,
+                    sliderBottomOffset = 8.dp,
                     sliderTouchHeight = 22.dp,
                     sliderScaleY = 0.82f,
                     timeSize = 12.dp.value.sp,
@@ -129,9 +130,9 @@ internal fun playerHorizontalSafePadding(): Dp {
 
 @Composable
 internal fun playerTimelineBottomInsets(metrics: PlayerLayoutMetrics): WindowInsets {
-    val safeInsets = WindowInsets.safeContent.only(WindowInsetsSides.Bottom)
-    val contentInsets = WindowInsets(bottom = metrics.sliderBottomOffset / 2)
-    return if (isIos) safeInsets.union(contentInsets) else safeInsets.add(contentInsets)
+    val navInsets = WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
+    val contentInsets = WindowInsets(bottom = (metrics.sliderBottomOffset / 4).coerceAtLeast(4.dp))
+    return navInsets.union(contentInsets)
 }
 
 internal fun PlayerResizeMode.next(): PlayerResizeMode =

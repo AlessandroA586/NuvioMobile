@@ -1,0 +1,141 @@
+name: Auto-Sync Upstream Nuvio Mobile
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-and-build:
+    name: Sync Upstream & Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          ref: cmp-rewrite
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Check Upstream Updates
+        id: check_upstream
+        run: |
+          git remote add upstream https://github.com/NuvioMedia/NuvioMobile.git || true
+          git fetch upstream cmp-rewrite
+          
+          UPSTREAM_HEAD=$(git rev-parse upstream/cmp-rewrite)
+          MERGE_BASE=$(git merge-base HEAD upstream/cmp-rewrite)
+          
+          if [ "$UPSTREAM_HEAD" = "$MERGE_BASE" ]; then
+            echo "has_updates=false" >> $GITHUB_OUTPUT
+            echo "Repository is already up to date with upstream NuvioMedia/NuvioMobile."
+          else
+            echo "has_updates=true" >> $GITHUB_OUTPUT
+            echo "New updates detected from upstream NuvioMedia/NuvioMobile!"
+          fi
+
+      - name: Merge Upstream & Reapply Juansher Patches
+        if: steps.check_upstream.outputs.has_updates == 'true'
+        run: |
+          git merge upstream/cmp-rewrite --no-edit -m "chore(sync): merge upstream updates from NuvioMedia/NuvioMobile" || true
+          
+          # 1. Ensure StreamAutoPlaySelector does not contain getStreamUrl()
+          AUTO_FILE="composeApp/src/commonMain/kotlin/com/nuvio/core/player/StreamAutoPlaySelector.kt"
+          if [ -f "$AUTO_FILE" ]; then
+            sed -i '/append(stream.getStreamUrl().orEmpty())/d' "$AUTO_FILE"
+          fi
+          
+          # 2. Ensure GITHUB_OWNER points to AlessandroA586
+          GRADLE_FILE="androidApp/build.gradle.kts"
+          if [ -f "$GRADLE_FILE" ]; then
+            sed -i 's/"NuvioMedia"/"AlessandroA586"/g' "$GRADLE_FILE"
+          fi
+          
+          git add -A
+          git diff-index --quiet HEAD || git commit -m "chore: reapply Juansher customizations and updater targeting"
+          git push origin cmp-rewrite
+
+      - name: Set up Java 17
+        if: steps.check_upstream.outputs.has_updates == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        if: steps.check_upstream.outputs.has_updates == 'true'
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Generate Release Keystore and Local Properties
+        if: steps.check_upstream.outputs.has_updates == 'true'
+        run: |
+          keystore_path="${RUNNER_TEMP}/juansher.jks"
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > "${keystore_path}"
+          
+          cat <<EOF > local.properties
+          NUVIO_RELEASE_STORE_FILE=${keystore_path}
+          NUVIO_RELEASE_STORE_PASSWORD=${{ secrets.RELEASE_STORE_PASSWORD }}
+          NUVIO_RELEASE_KEY_ALIAS=${{ secrets.RELEASE_KEY_ALIAS }}
+          NUVIO_RELEASE_KEY_PASSWORD=${{ secrets.RELEASE_KEY_PASSWORD }}
+          NUVIO_SUPABASE_URL=https://api.nuvio.tv
+          NUVIO_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgxNTIxMzQ2LCJleHAiOjE5MzkyMDEzNDZ9.tmQaj682pwzehpqlgCDMnySOqiUvpgRbrE43T4VJpDI
+          NUVIO_SUPABASE_FALLBACK_URL=https://api-two.nuvioapp.space
+          SENTRY_DSN=https://a4f60d0d86876166059c050511332924@o4511671534354432.ingest.us.sentry.io/4511676526166016
+          TMDB_API_KEY=01926d2187b6a5d861eefc750e9df3e3
+          TRAKT_CLIENT_ID=5783db7c46a5b22f072d4b224f9bd7dc2cbaba66dbe3515d1feb59e3ca72394c
+          TRAKT_CLIENT_SECRET=bf6e7561dafee902f5a2a67d2b31feac1563632f331f3958c978aff6389ea384
+          TRAKT_REDIRECT_URI=nuvio://auth/trakt
+          SIMKL_CLIENT_ID=dc20e0db975583b15096267cee79cd23b1f56d4bd301ce3c51e4a96a49c834a6
+          SIMKL_REDIRECT_URI=nuvio://auth/simkl
+          SIMKL_APP_NAME=nuvio
+          MDBLIST_CLIENT_ID=kMMZyv8qithmUSF5102U6HTAPEDqfHtNbn1W4gkz
+          INTRODB_API_URL=https://api.introdb.app/
+          IMDB_RATINGS_API_BASE_URL=https://imdb.tapframe.space/
+          IMDB_TAPFRAME_API_BASE_URL=https://imdb.tapframe.space/
+          CONTRIBUTIONS_URL=https://gitserver.tapframe.space/api/unique-contributions
+          SUPPORTERS_WALL_URL=https://nuvio.tv/api/supporters/wall
+          DONATIONS_BASE_URL=https://donate.nuvio.tv
+          EOF
+
+      - name: Build Android Full Release APK
+        if: steps.check_upstream.outputs.has_updates == 'true'
+        run: ./gradlew :androidApp:assembleFullRelease --stacktrace
+
+      - name: Locate and Collect APKs
+        if: steps.check_upstream.outputs.has_updates == 'true'
+        run: |
+          mkdir -p dist
+          find androidApp/build/outputs/apk/full/release -name "*.apk" -exec cp {} dist/ \;
+          ls -la dist/
+
+      - name: Create GitHub Release
+        if: steps.check_upstream.outputs.has_updates == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(grep -m1 'versionName' androidApp/build.gradle.kts | cut -d '"' -f2 || echo "1.0.3")
+          TAG="v${VERSION}"
+          
+          gh release delete "${TAG}" --yes --repo "${{ github.repository }}" || true
+          git tag -d "${TAG}" || true
+          git push origin ":refs/tags/${TAG}" || true
+          
+          gh release create "${TAG}" dist/*.apk \
+            --repo "${{ github.repository }}" \
+            --target cmp-rewrite \
+            --title "Nuvio Mobile Custom ${TAG} (Juansher)" \
+            --notes "Versión actualizada automáticamente de Nuvio Mobile ${TAG}.
+          - Sincronizado con las novedades de NuvioMedia/NuvioMobile.
+          - Filtro Regex en auto-play corregido.
+          - Controles anclados y carátulas remotas optimizadas.
+          - Identificador: Juansher | V${VERSION}.
+          - Firmado permanentemente con llave Juansher."
