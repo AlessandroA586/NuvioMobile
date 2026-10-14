@@ -8,6 +8,7 @@ on:
     paths:
       - 'composeApp/**'
       - 'androidApp/**'
+      - '.github/workflows/build-custom-apk.yml'
 
 permissions:
   contents: write
@@ -32,42 +33,59 @@ jobs:
 
       - name: Generate Release Keystore and Local Properties
         run: |
-          keystore_path="${RUNNER_TEMP}/nuvio-custom.jks"
-          keytool -genkey -v -keystore "${keystore_path}" -keyalg RSA -keysize 2048 -validity 10000             -alias nuvio -storepass nuviopassword -keypass nuviopassword             -dname "CN=Juansher, OU=NuvioCustom, O=Juansher, L=City, S=State, C=US"
+          keystore_path="${RUNNER_TEMP}/juansher.jks"
+          echo "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" | base64 --decode > "${keystore_path}"
           
           cat <<EOF > local.properties
           NUVIO_RELEASE_STORE_FILE=${keystore_path}
-          NUVIO_RELEASE_STORE_PASSWORD=nuviopassword
-          NUVIO_RELEASE_KEY_ALIAS=nuvio
-          NUVIO_RELEASE_KEY_PASSWORD=nuviopassword
+          NUVIO_RELEASE_STORE_PASSWORD=juansherpass
+          NUVIO_RELEASE_KEY_ALIAS=juansher
+          NUVIO_RELEASE_KEY_PASSWORD=juansherpass
+          NUVIO_SUPABASE_URL=https://api.nuvio.tv
+          NUVIO_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgxNTIxMzQ2LCJleHAiOjE5MzkyMDEzNDZ9.tmQaj682pwzehpqlgCDMnySOqiUvpgRbrE43T4VJpDI
+          NUVIO_SUPABASE_FALLBACK_URL=https://api-two.nuvioapp.space
+          SENTRY_DSN=https://a4f60d0d86876166059c050511332924@o4511671534354432.ingest.us.sentry.io/4511676526166016
+          TMDB_API_KEY=01926d2187b6a5d861eefc750e9df3e3
+          TRAKT_CLIENT_ID=5783db7c46a5b22f072d4b224f9bd7dc2cbaba66dbe3515d1feb59e3ca72394c
+          TRAKT_CLIENT_SECRET=bf6e7561dafee902f5a2a67d2b31feac1563632f331f3958c978aff6389ea384
+          TRAKT_REDIRECT_URI=nuvio://auth/trakt
+          SIMKL_CLIENT_ID=dc20e0db975583b15096267cee79cd23b1f56d4bd301ce3c51e4a96a49c834a6
+          SIMKL_REDIRECT_URI=nuvio://auth/simkl
+          SIMKL_APP_NAME=nuvio
+          MDBLIST_CLIENT_ID=kMMZyv8qithmUSF5102U6HTAPEDqfHtNbn1W4gkz
+          INTRODB_API_URL=https://api.introdb.app/
+          IMDB_RATINGS_API_BASE_URL=https://imdb.tapframe.space/
+          IMDB_TAPFRAME_API_BASE_URL=https://imdb.tapframe.space/
+          CONTRIBUTIONS_URL=https://gitserver.tapframe.space/api/unique-contributions
+          SUPPORTERS_WALL_URL=https://nuvio.tv/api/supporters/wall
+          DONATIONS_BASE_URL=https://donate.nuvio.tv
           EOF
 
       - name: Build Android Full Release APK
-        run: ./gradlew :androidApp:assembleFullRelease -Pnuvio.app.versionName="1.0" --stacktrace
+        run: ./gradlew :androidApp:assembleFullRelease -Pnuvio.app.versionName="1.0.1" --stacktrace
 
       - name: Locate and Rename APK
         run: |
           mkdir -p dist
           find androidApp/build/outputs/apk/full/release -name "*.apk" -exec cp {} dist/ \;
           ls -la dist/
-          # Create convenient universal name
-          cp dist/*.apk dist/Nuvio-Juansher-v1.0.apk || true
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete v1.0 --yes --repo "${{ github.repository }}" || true
-          git tag -d v1.0 || true
-          git push origin :refs/tags/v1.0 || true
+          gh release delete v1.0.1 --yes --repo "${{ github.repository }}" || true
+          git tag -d v1.0.1 || true
+          git push origin :refs/tags/v1.0.1 || true
 
-          gh release create v1.0 dist/*.apk \
+          gh release create v1.0.1 dist/*.apk \
             --repo "${{ github.repository }}" \
             --target "${{ github.ref_name }}" \
-            --title "Nuvio Custom v1.0 (Juansher)" \
-            --notes "Versión personalizada de NuvioMobile v1.0 para teléfono y tablet.
+            --title "Nuvio Custom v1.0.1 (Juansher)" \
+            --notes "Versin personalizada de NuvioMobile v1.0.1 para telfono y tablet.
           
-          ### Mejoras incluidas:
-          - Filtro Regex estricto: Si una película no contiene audio en español, se cancela la reproducción automática y te muestra la lista de enlaces en pantalla.
-          - Actualizador automático configurado para buscar actualizaciones en AlessandroA586/NuvioMobile.
-          - Etiqueta personalizada 'Juansher | V1.0' en Ajustes."
+          ### Correcciones y funciones:
+          - Conexin y autenticacin 100% oficial con servidores de Nuvio (Supabase, TMDB, Trakt, Simkl, MDBList).
+          - Filtro Regex estricto de idioma: cancela la reproduccin automtica si no hay audio en espaol y muestra la lista de streams.
+          - Actualizador automtico conectado a AlessandroA586/NuvioMobile.
+          - Identificador personalizado: Juansher | V1.0.1."
