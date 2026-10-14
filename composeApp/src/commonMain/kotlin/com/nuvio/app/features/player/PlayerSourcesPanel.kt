@@ -31,6 +31,11 @@ fun PlayerSourcesPanel(
     currentEpisodeTitle: String?,
     currentStreamUrl: String?,
     currentStreamName: String?,
+    currentStreamSubtitle: String? = null,
+    currentTorrentInfoHash: String? = null,
+    currentTorrentFileIdx: Int? = null,
+    currentTorrentFilename: String? = null,
+    currentProviderName: String? = null,
     onFilterSelected: (String?) -> Unit,
     onStreamSelected: (StreamItem) -> Unit,
     onReload: () -> Unit,
@@ -95,6 +100,11 @@ fun PlayerSourcesPanel(
                 modifier = Modifier.weight(1f),
                 currentStreamUrl = currentStreamUrl,
                 currentStreamName = currentStreamName,
+                currentStreamSubtitle = currentStreamSubtitle,
+                currentTorrentInfoHash = currentTorrentInfoHash,
+                currentTorrentFileIdx = currentTorrentFileIdx,
+                currentTorrentFilename = currentTorrentFilename,
+                currentProviderName = currentProviderName,
                 currentLabel = stringResource(Res.string.compose_player_playing),
             )
         }
@@ -118,8 +128,53 @@ internal fun List<StreamItem>.stablePlayerKeys(): List<String> {
 internal fun StreamItem.isCurrentPlayerStream(
     currentUrl: String?,
     currentName: String?,
+    currentSubtitle: String? = null,
+    currentInfoHash: String? = null,
+    currentFileIdx: Int? = null,
+    currentFilename: String? = null,
+    currentProvider: String? = null,
 ): Boolean {
+    // 1. Torrent / Debrid InfoHash match
+    val effectiveHash = infoHash ?: clientResolve?.infoHash
+    val effectiveIdx = fileIdx ?: clientResolve?.fileIdx
+    if (!currentInfoHash.isNullOrBlank() && !effectiveHash.isNullOrBlank()) {
+        if (effectiveHash.equals(currentInfoHash, ignoreCase = true)) {
+            if (currentFileIdx == null || effectiveIdx == null || effectiveIdx == currentFileIdx) {
+                return true
+            }
+        }
+    }
+
+    // 2. Direct URL match
     if (!currentUrl.isNullOrBlank() && playableDirectUrl == currentUrl) return true
-    return !currentName.isNullOrBlank() && streamLabel.equals(currentName, ignoreCase = true) &&
-        playableDirectUrl == currentUrl
+
+    // 3. Match by normalized release subtitle / title / filename (crucial for Debrid CDN streams)
+    fun norm(s: String?): String = s.orEmpty().lowercase().replace(Regex("[^a-z0-9]"), "")
+
+    val targetSubNorm = norm(currentSubtitle).takeIf { it.length >= 5 }
+    val targetFileNorm = norm(currentFilename).takeIf { it.length >= 5 }
+    val streamSubNorm = norm(description ?: title)
+    val streamFileNorm = norm(behaviorHints.filename)
+
+    val sameProvider = currentProvider.isNullOrBlank() ||
+        addonName.equals(currentProvider, ignoreCase = true) ||
+        (sourceName != null && sourceName.equals(currentProvider, ignoreCase = true))
+
+    if (sameProvider && (targetSubNorm != null || targetFileNorm != null)) {
+        if (targetSubNorm != null && (streamSubNorm == targetSubNorm || (targetSubNorm.length > 15 && (streamSubNorm.contains(targetSubNorm) || targetSubNorm.contains(streamSubNorm))))) {
+            return true
+        }
+        if (targetFileNorm != null && (streamFileNorm == targetFileNorm || streamSubNorm.contains(targetFileNorm))) {
+            return true
+        }
+    }
+
+    // 4. Stream label match with same provider
+    if (sameProvider && !currentName.isNullOrBlank() && streamLabel.equals(currentName, ignoreCase = true)) {
+        if (targetSubNorm == null || streamSubNorm == targetSubNorm) {
+            return true
+        }
+    }
+
+    return false
 }
