@@ -62,7 +62,7 @@ jobs:
           EOF
 
       - name: Build Android Full Release APK
-        run: ./gradlew :androidApp:assembleFullRelease -Pnuvio.app.versionName="1.0.2" --stacktrace
+        run: ./gradlew :androidApp:assembleFullRelease -Pnuvio.app.versionName="1.1.0" --stacktrace
 
       - name: Locate and Rename APK
         run: |
@@ -74,18 +74,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete v1.0.2 --yes --repo "${{ github.repository }}" || true
-          git tag -d v1.0.2 || true
-          git push origin :refs/tags/v1.0.2 || true
+          gh release delete v1.1.0 --yes --repo "${{ github.repository }}" || true
+          git tag -d v1.1.0 || true
+          git push origin :refs/tags/v1.1.0 || true
 
-          gh release create v1.0.2 dist/*.apk \
+          gh release create v1.1.0 dist/*.apk \
             --repo "${{ github.repository }}" \
             --target "${{ github.ref_name }}" \
-            --title "Nuvio Custom v1.0.2 (Juansher)" \
-            --notes "Versin personalizada de NuvioMobile v1.0.2 para telfono y tablet.
+            --title "Nuvio Custom v1.1.0 (Juansher)" \
+            --notes "Versión personalizada de NuvioMobile v1.1.0 para teléfono y tablet.
           
-          ### Correcciones y funciones:
-          - Conexin y autenticacin 100% oficial con servidores de Nuvio (Supabase, TMDB, Trakt, Simkl, MDBList).
-          - Filtro Regex estricto de idioma: cancela la reproduccin automtica si no hay audio en espaol y muestra la lista de streams.
-          - Actualizador automtico conectado a AlessandroA586/NuvioMobile.
-          - Identificador personalizado: Juansher | V1.0.2."
+          ### Novedades y correcciones en v1.1.0:
+          - Indicador de enlace activo: El panel de fuentes ahora reconoce y marca siempre con la pastilla 'Reproduciendo' el enlace en uso, incluyendo streams de Real-Debrid y AIOStreams.
+          - Auto-scroll a la fuente en reproducción: La lista de fuentes se desplaza automáticamente hasta el enlace activo al abrir el panel.
+          - Filtro Regex estricto de idioma: Cancela la reproducción automática si no hay audio en español y muestra la lista de streams.
+          - Conexión y autenticación oficial: Supabase, TMDB, Trakt, Simkl, MDBList configurados con los servidores oficiales de Nuvio.
+          - Identificador personalizado: Juansher | V1.1.0."
