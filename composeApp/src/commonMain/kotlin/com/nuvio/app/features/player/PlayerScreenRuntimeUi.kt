@@ -571,6 +571,11 @@ private fun PlayerScreenRuntime.RenderPlayerModals(displayedPositionMs: Long) {
         activeEpisodeTitle = activeEpisodeTitle,
         activeSourceUrl = activeSourceUrl,
         activeStreamTitle = activeStreamTitle,
+        activeStreamSubtitle = activeStreamSubtitle,
+        activeTorrentInfoHash = activeTorrentInfoHash,
+        activeTorrentFileIdx = activeTorrentFileIdx,
+        activeTorrentFilename = activeTorrentFilename,
+        activeProviderName = activeProviderName,
         onSourceFilterSelected = PlayerStreamsRepository::selectSourceFilter,
         onSourceStreamSelected = { stream -> switchToSource(stream) },
         onReloadSources = {
