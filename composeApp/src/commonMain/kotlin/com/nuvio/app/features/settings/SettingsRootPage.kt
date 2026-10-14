@@ -284,7 +284,7 @@ internal fun LazyListScope.settingsRootContent(
                 textAlign = TextAlign.Center,
             )
             Text(
-                text = "Juansher | V1.0",
+                text = "Juansher | V1.0.1",
                 modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary,
