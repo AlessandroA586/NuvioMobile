@@ -125,7 +125,7 @@ internal fun PlayerStreamList(
                 itemsIndexed(
                     items = streams,
                     key = { index, _ -> streamKeys[index] },
-                ) { _, stream ->
+                ) { index, stream ->
                     StreamCard(
                         stream = stream,
                         enabled = stream.isSelectableForPlayback(debridSettings.canResolvePlayableLinks),
@@ -134,15 +134,7 @@ internal fun PlayerStreamList(
                         showFileSizeBadges = streamBadgeSettings.showFileSizeBadges,
                         showAddonLogo = streamBadgeSettings.showAddonLogo,
                         badgePlacement = streamBadgeSettings.badgePlacement,
-                        isCurrent = stream.isCurrentPlayerStream(
-                            currentUrl = currentStreamUrl,
-                            currentName = currentStreamName,
-                            currentSubtitle = currentStreamSubtitle,
-                            currentInfoHash = currentTorrentInfoHash,
-                            currentFileIdx = currentTorrentFileIdx,
-                            currentFilename = currentTorrentFilename,
-                            currentProvider = currentProviderName,
-                        ),
+                        isCurrent = index == currentStreamIndex,
                         currentLabel = currentLabel,
                         onClick = { onStreamSelected(stream) },
                     )
