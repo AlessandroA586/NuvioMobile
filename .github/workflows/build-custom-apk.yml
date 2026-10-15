@@ -62,7 +62,7 @@ jobs:
           EOF
 
       - name: Build Android Full Release APK
-        run: ./gradlew :androidApp:assembleFullRelease -Pnuvio.app.versionName="1.1.2" --stacktrace
+        run: ./gradlew :androidApp:assembleFullRelease -Pnuvio.app.versionName="1.2.0" --stacktrace
 
       - name: Locate and Rename APK
         run: |
@@ -74,19 +74,21 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete v1.1.2 --yes --repo "${{ github.repository }}" || true
-          git tag -d v1.1.2 || true
-          git push origin :refs/tags/v1.1.2 || true
+          gh release delete v1.2.0 --yes --repo "${{ github.repository }}" || true
+          git tag -d v1.2.0 || true
+          git push origin :refs/tags/v1.2.0 || true
 
-          gh release create v1.1.2 dist/*.apk \
+          cat << 'EOF' > release_notes.md
+          Versión personalizada de Nuvio Mobile v1.2.0 para teléfono y tablet.
+
+          ### Novedades de la versión v1.2.0:
+          - Carga instantánea de fuentes en reproducción: Al abrir el panel de fuentes (icono de la nube) durante la reproducción, se muestran inmediatamente las fuentes obtenidas en la búsqueda inicial con complementos, sin esperas de red adicionales.
+          - Información de versión en Ajustes: Separación clara entre la versión oficial del creador y la versión personalizada de Juansher.
+          - Identificador de versión: Juansher | V1.2.0.
+          EOF
+
+          gh release create v1.2.0 dist/*.apk \
             --repo "${{ github.repository }}" \
             --target "${{ github.ref_name }}" \
-            --title "Nuvio Custom v1.1.2 (Juansher)" \
-            --notes "Versión personalizada de NuvioMobile v1.1.2 para teléfono y tablet.
-          
-          ### Novedades y correcciones en v1.1.2:
-          - Indicador de enlace activo: El panel de fuentes ahora reconoce y marca siempre con la pastilla 'Reproduciendo' el enlace en uso, incluyendo streams de Real-Debrid y AIOStreams.
-          - Auto-scroll a la fuente en reproducción: La lista de fuentes se desplaza automáticamente hasta el enlace activo al abrir el panel.
-          - Filtro Regex estricto de idioma: Cancela la reproducción automática si no hay audio en español y muestra la lista de streams.
-          - Conexión y autenticación oficial: Supabase, TMDB, Trakt, Simkl, MDBList configurados con los servidores oficiales de Nuvio.
-          - Identificador personalizado: Juansher | V1.1.2."
+            --title "Nuvio Custom v1.2.0 (Juansher)" \
+            --notes-file release_notes.md
