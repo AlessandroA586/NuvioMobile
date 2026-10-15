@@ -148,46 +148,36 @@ internal fun StreamItem.isCurrentPlayerStream(
     // 2. Direct URL match
     if (!currentUrl.isNullOrBlank() && playableDirectUrl == currentUrl) return true
 
-    // 3. Match by normalized release subtitle / title / filename (crucial for Debrid CDN streams)
+    // 3. Normalized helpers
     fun norm(s: String?): String = s.orEmpty().lowercase().replace(Regex("[^a-z0-9]"), "")
-
-    val targetSubNorm = norm(currentSubtitle).takeIf { it.length >= 5 }
-    val targetFileNorm = norm(currentFilename).takeIf { it.length >= 5 }
-    val streamSubNorm = norm(description ?: title)
-    val streamTitleNorm = norm(title)
-    val streamDescNorm = norm(description)
-    val streamFileNorm = norm(behaviorHints.filename)
 
     val sameProvider = currentProvider.isNullOrBlank() ||
         addonName.equals(currentProvider, ignoreCase = true) ||
         (sourceName != null && sourceName.equals(currentProvider, ignoreCase = true))
 
-    if (targetSubNorm != null || targetFileNorm != null) {
-        val subMatch = targetSubNorm != null && (
-            streamSubNorm == targetSubNorm ||
-            streamTitleNorm == targetSubNorm ||
-            streamDescNorm == targetSubNorm ||
-            (targetSubNorm.length > 10 && (
-                streamSubNorm.contains(targetSubNorm) || targetSubNorm.contains(streamSubNorm) ||
-                streamTitleNorm.contains(targetSubNorm) || targetSubNorm.contains(streamTitleNorm)
-            ))
-        )
-        val fileMatch = targetFileNorm != null && (
-            streamFileNorm == targetFileNorm ||
-            streamSubNorm.contains(targetFileNorm) ||
-            streamTitleNorm.contains(targetFileNorm)
-        )
-        // If high-confidence release name match (>12 chars), provider difference shouldn't block
-        if ((subMatch || fileMatch) && (sameProvider || (targetSubNorm != null && targetSubNorm.length > 12))) {
+    val targetNameNorm = norm(currentName).takeIf { it.length >= 3 }
+    val streamNameNorm = norm(streamLabel).takeIf { it.length >= 3 } ?: norm(name).takeIf { it.length >= 3 }
+
+    val targetSubNorm = norm(currentSubtitle).takeIf { it.length >= 5 }
+    val streamSubNorm = norm(description ?: title).takeIf { it.length >= 5 }
+    val targetFileNorm = norm(currentFilename).takeIf { it.length >= 5 }
+    val streamFileNorm = norm(behaviorHints.filename).takeIf { it.length >= 5 }
+
+    // 4. Exact filename match (very high confidence)
+    if (targetFileNorm != null && streamFileNorm != null && targetFileNorm == streamFileNorm) {
+        return true
+    }
+
+    // 5. Match by exact stream name + provider
+    if (sameProvider && targetNameNorm != null && streamNameNorm != null && targetNameNorm == streamNameNorm) {
+        if (targetSubNorm == null || streamSubNorm == null || targetSubNorm == streamSubNorm) {
             return true
         }
     }
 
-    // 4. Stream label match with same provider
-    if (sameProvider && !currentName.isNullOrBlank()) {
-        val currentNameNorm = norm(currentName)
-        val streamLabelNorm = norm(streamLabel)
-        if (currentNameNorm == streamLabelNorm && (targetSubNorm == null || streamSubNorm == targetSubNorm)) {
+    // 6. Match by exact normalized release description
+    if (targetSubNorm != null && streamSubNorm != null && targetSubNorm == streamSubNorm) {
+        if (sameProvider || targetSubNorm.length >= 20) {
             return true
         }
     }
