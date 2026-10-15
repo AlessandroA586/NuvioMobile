@@ -275,8 +275,8 @@ internal fun LazyListScope.settingsRootContent(
             Text(
                 text = stringResource(
                     Res.string.compose_about_version_format,
-                    AppVersionConfig.VERSION_NAME,
-                    AppVersionConfig.VERSION_CODE,
+                    "0.5.10",
+                    "142",
                 ),
                 modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.bodySmall,
@@ -284,7 +284,7 @@ internal fun LazyListScope.settingsRootContent(
                 textAlign = TextAlign.Center,
             )
             Text(
-                text = "Juansher | V1.0.2",
+                text = "Juansher | V1.2.0",
                 modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary,
