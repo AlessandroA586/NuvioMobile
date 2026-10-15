@@ -154,24 +154,40 @@ internal fun StreamItem.isCurrentPlayerStream(
     val targetSubNorm = norm(currentSubtitle).takeIf { it.length >= 5 }
     val targetFileNorm = norm(currentFilename).takeIf { it.length >= 5 }
     val streamSubNorm = norm(description ?: title)
+    val streamTitleNorm = norm(title)
+    val streamDescNorm = norm(description)
     val streamFileNorm = norm(behaviorHints.filename)
 
     val sameProvider = currentProvider.isNullOrBlank() ||
         addonName.equals(currentProvider, ignoreCase = true) ||
         (sourceName != null && sourceName.equals(currentProvider, ignoreCase = true))
 
-    if (sameProvider && (targetSubNorm != null || targetFileNorm != null)) {
-        if (targetSubNorm != null && (streamSubNorm == targetSubNorm || (targetSubNorm.length > 15 && (streamSubNorm.contains(targetSubNorm) || targetSubNorm.contains(streamSubNorm))))) {
-            return true
-        }
-        if (targetFileNorm != null && (streamFileNorm == targetFileNorm || streamSubNorm.contains(targetFileNorm))) {
+    if (targetSubNorm != null || targetFileNorm != null) {
+        val subMatch = targetSubNorm != null && (
+            streamSubNorm == targetSubNorm ||
+            streamTitleNorm == targetSubNorm ||
+            streamDescNorm == targetSubNorm ||
+            (targetSubNorm.length > 10 && (
+                streamSubNorm.contains(targetSubNorm) || targetSubNorm.contains(streamSubNorm) ||
+                streamTitleNorm.contains(targetSubNorm) || targetSubNorm.contains(streamTitleNorm)
+            ))
+        )
+        val fileMatch = targetFileNorm != null && (
+            streamFileNorm == targetFileNorm ||
+            streamSubNorm.contains(targetFileNorm) ||
+            streamTitleNorm.contains(targetFileNorm)
+        )
+        // If high-confidence release name match (>12 chars), provider difference shouldn't block
+        if ((subMatch || fileMatch) && (sameProvider || (targetSubNorm != null && targetSubNorm.length > 12))) {
             return true
         }
     }
 
     // 4. Stream label match with same provider
-    if (sameProvider && !currentName.isNullOrBlank() && streamLabel.equals(currentName, ignoreCase = true)) {
-        if (targetSubNorm == null || streamSubNorm == targetSubNorm) {
+    if (sameProvider && !currentName.isNullOrBlank()) {
+        val currentNameNorm = norm(currentName)
+        val streamLabelNorm = norm(streamLabel)
+        if (currentNameNorm == streamLabelNorm && (targetSubNorm == null || streamSubNorm == targetSubNorm)) {
             return true
         }
     }
