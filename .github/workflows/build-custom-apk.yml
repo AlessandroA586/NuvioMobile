@@ -62,7 +62,7 @@ jobs:
           EOF
 
       - name: Build Android Full Release APK
-        run: ./gradlew :androidApp:assembleFullRelease -Pnuvio.app.versionName="1.1.0" --stacktrace
+        run: ./gradlew :androidApp:assembleFullRelease -Pnuvio.app.versionName="1.1.1" --stacktrace
 
       - name: Locate and Rename APK
         run: |
@@ -74,19 +74,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete v1.1.0 --yes --repo "${{ github.repository }}" || true
-          git tag -d v1.1.0 || true
-          git push origin :refs/tags/v1.1.0 || true
+          gh release delete v1.1.1 --yes --repo "${{ github.repository }}" || true
+          git tag -d v1.1.1 || true
+          git push origin :refs/tags/v1.1.1 || true
 
-          gh release create v1.1.0 dist/*.apk \
+          gh release create v1.1.1 dist/*.apk \
             --repo "${{ github.repository }}" \
             --target "${{ github.ref_name }}" \
-            --title "Nuvio Custom v1.1.0 (Juansher)" \
-            --notes "Versión personalizada de NuvioMobile v1.1.0 para teléfono y tablet.
+            --title "Nuvio Custom v1.1.1 (Juansher)" \
+            --notes "Versión personalizada de NuvioMobile v1.1.1 para teléfono y tablet.
           
-          ### Novedades y correcciones en v1.1.0:
+          ### Novedades y correcciones en v1.1.1:
           - Indicador de enlace activo: El panel de fuentes ahora reconoce y marca siempre con la pastilla 'Reproduciendo' el enlace en uso, incluyendo streams de Real-Debrid y AIOStreams.
           - Auto-scroll a la fuente en reproducción: La lista de fuentes se desplaza automáticamente hasta el enlace activo al abrir el panel.
           - Filtro Regex estricto de idioma: Cancela la reproducción automática si no hay audio en español y muestra la lista de streams.
           - Conexión y autenticación oficial: Supabase, TMDB, Trakt, Simkl, MDBList configurados con los servidores oficiales de Nuvio.
-          - Identificador personalizado: Juansher | V1.1.0."
+          - Identificador personalizado: Juansher | V1.1.1."
