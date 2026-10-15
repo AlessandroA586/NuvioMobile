@@ -206,6 +206,16 @@ object PlayerStreamsRepository {
             return
         }
 
+        // Instant reuse: seed from initial search in StreamsRepository if available
+        if (!forceRefresh && current.groups.isEmpty()) {
+            val mainStreamsState = com.nuvio.app.features.streams.StreamsRepository.uiState.value
+            if (mainStreamsState.groups.isNotEmpty()) {
+                setRequestKey(requestKey)
+                stateFlow.value = mainStreamsState.copy(isAnyLoading = false)
+                return
+            }
+        }
+
         setRequestKey(requestKey)
         jobHolder()?.cancel()
         stateFlow.value = StreamsUiState()
