@@ -1,5 +1,6 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 CURRENT_PROJECT_VERSION=1072
 MARKETING_VERSION=1.1.2
 =======
@@ -9,4 +10,8 @@ MARKETING_VERSION=0.6.0
 =======
 CURRENT_PROJECT_VERSION=144
 MARKETING_VERSION=0.6.1
+>>>>>>> upstream/cmp-rewrite
+=======
+CURRENT_PROJECT_VERSION=145
+MARKETING_VERSION=0.6.2
 >>>>>>> upstream/cmp-rewrite
