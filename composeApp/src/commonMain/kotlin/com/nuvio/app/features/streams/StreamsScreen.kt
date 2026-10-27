@@ -251,7 +251,24 @@ fun StreamsScreen(
                 resumePositionMs = effectiveResumePositionMs,
                 resumeProgressFraction = effectiveResumeProgressFraction,
                 onStreamSelected = { stream, positionMs, progressFraction ->
-                    onStreamSelected(stream, positionMs, progressFraction)
+                    val connectedTv = com.nuvio.app.features.cast.CastManager.selectedDevice.value
+                    val streamUrl = stream.playableDirectUrl ?: stream.url
+                    if (connectedTv != null && !streamUrl.isNullOrBlank()) {
+                        com.nuvio.app.features.cast.CastManager.castStream(
+                            title = title,
+                            streamUrl = streamUrl,
+                            imdbId = imdbId,
+                            type = if (isEpisode) "series" else "movie",
+                            season = seasonNumber,
+                            episode = episodeNumber,
+                            addonId = stream.addonId,
+                            sourceName = stream.name,
+                            headers = stream.behaviorHints.proxyHeaders?.request ?: emptyMap(),
+                            startTimeSeconds = (positionMs ?: 0L) / 1000L,
+                        )
+                    } else {
+                        onStreamSelected(stream, positionMs, progressFraction)
+                    }
                 },
                 onStreamLongPress = { stream -> streamActionsTarget = stream },
                 onRefresh = reloadStreams,
@@ -273,7 +290,24 @@ fun StreamsScreen(
                 resumePositionMs = effectiveResumePositionMs,
                 resumeProgressFraction = effectiveResumeProgressFraction,
                 onStreamSelected = { stream, positionMs, progressFraction ->
-                    onStreamSelected(stream, positionMs, progressFraction)
+                    val connectedTv = com.nuvio.app.features.cast.CastManager.selectedDevice.value
+                    val streamUrl = stream.playableDirectUrl ?: stream.url
+                    if (connectedTv != null && !streamUrl.isNullOrBlank()) {
+                        com.nuvio.app.features.cast.CastManager.castStream(
+                            title = title,
+                            streamUrl = streamUrl,
+                            imdbId = imdbId,
+                            type = if (isEpisode) "series" else "movie",
+                            season = seasonNumber,
+                            episode = episodeNumber,
+                            addonId = stream.addonId,
+                            sourceName = stream.name,
+                            headers = stream.behaviorHints.proxyHeaders?.request ?: emptyMap(),
+                            startTimeSeconds = (positionMs ?: 0L) / 1000L,
+                        )
+                    } else {
+                        onStreamSelected(stream, positionMs, progressFraction)
+                    }
                 },
                 onStreamLongPress = { stream -> streamActionsTarget = stream },
                 onRefresh = reloadStreams,

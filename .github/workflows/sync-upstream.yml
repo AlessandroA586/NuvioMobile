@@ -1,0 +1,61 @@
+name: Auto Sync Upstream & Build
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # Every 6 hours
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  sync:
+    name: Sync with Official NuvioMobile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add Upstream Remote
+        run: |
+          git remote add upstream https://github.com/NuvioMedia/NuvioMobile.git
+          git fetch upstream cmp-rewrite
+
+      - name: Check for New Upstream Commits
+        id: check_upstream
+        run: |
+          LOCAL_COMMIT=$(git rev-parse HEAD)
+          UPSTREAM_COMMIT=$(git rev-parse upstream/cmp-rewrite)
+          echo "Local commit: $LOCAL_COMMIT"
+          echo "Upstream commit: $UPSTREAM_COMMIT"
+          if git merge-base --is-ancestor upstream/cmp-rewrite HEAD; then
+            echo "Already up to date with upstream."
+            echo "has_updates=false" >> $GITHUB_OUTPUT
+          else
+            echo "New updates found in upstream."
+            echo "has_updates=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Merge Upstream into Fork
+        if: steps.check_upstream.outputs.has_updates == 'true'
+        run: |
+          # Merge upstream changes preserving our isolated cast implementation
+          git merge upstream/cmp-rewrite -m "chore(sync): auto-merge upstream updates from NuvioMedia"
+          git push origin cmp-rewrite
+
+      - name: Trigger Automatic Build & Release
+        if: steps.check_upstream.outputs.has_updates == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Trigger android release build
+          gh workflow run android-release.yml -f mode=publish || true

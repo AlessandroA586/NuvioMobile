@@ -505,6 +505,7 @@ private fun PlayerHeader(
                             onClick = onSubmitIntroClick,
                         )
                     }
+                    com.nuvio.app.features.cast.CastIconButton()
                     if (onOpenInExternalPlayer != null) {
                         PlayerHeaderIconButton(
                             icon = Icons.Filled.SwapHoriz,
