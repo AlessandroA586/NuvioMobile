@@ -45,11 +45,18 @@ jobs:
           sed -i -E '/^[[:space:]]*(sdk\.dir|NUVIO_RELEASE_STORE_FILE)[[:space:]]*=/d' local.properties
           printf '\nNUVIO_RELEASE_STORE_FILE=%s\nsdk.dir=%s\n' "${keystore_path}" "${ANDROID_HOME}" >> local.properties
           
-          # Inject direct environment variables as safe fallback
+          # Extract passwords from decrypted secret and mask them in logs
+          STORE_PASS=$(grep '^NUVIO_RELEASE_STORE_PASSWORD=' local.properties | cut -d'=' -f2-)
+          KEY_PASS=$(grep '^NUVIO_RELEASE_KEY_PASSWORD=' local.properties | cut -d'=' -f2-)
+          KEY_ALIAS=$(grep '^NUVIO_RELEASE_KEY_ALIAS=' local.properties | cut -d'=' -f2-)
+          
+          echo "::add-mask::${STORE_PASS}"
+          echo "::add-mask::${KEY_PASS}"
+          
           echo "NUVIO_RELEASE_STORE_FILE=${keystore_path}" >> $GITHUB_ENV
-          echo "NUVIO_RELEASE_STORE_PASSWORD=NuvioCastSecureKey2026!" >> $GITHUB_ENV
-          echo "NUVIO_RELEASE_KEY_ALIAS=nuviocast" >> $GITHUB_ENV
-          echo "NUVIO_RELEASE_KEY_PASSWORD=NuvioCastSecureKey2026!" >> $GITHUB_ENV
+          echo "NUVIO_RELEASE_STORE_PASSWORD=${STORE_PASS}" >> $GITHUB_ENV
+          echo "NUVIO_RELEASE_KEY_ALIAS=${KEY_ALIAS}" >> $GITHUB_ENV
+          echo "NUVIO_RELEASE_KEY_PASSWORD=${KEY_PASS}" >> $GITHUB_ENV
 
       - name: Build Full Android & Tablet APKs
         run: |
