@@ -257,7 +257,7 @@ fun StreamsScreen(
                         com.nuvio.app.features.cast.CastManager.castStream(
                             title = title,
                             streamUrl = streamUrl,
-                            imdbId = imdbId,
+                            imdbId = videoId,
                             type = if (isEpisode) "series" else "movie",
                             season = seasonNumber,
                             episode = episodeNumber,
@@ -296,7 +296,7 @@ fun StreamsScreen(
                         com.nuvio.app.features.cast.CastManager.castStream(
                             title = title,
                             streamUrl = streamUrl,
-                            imdbId = imdbId,
+                            imdbId = videoId,
                             type = if (isEpisode) "series" else "movie",
                             season = seasonNumber,
                             episode = episodeNumber,
