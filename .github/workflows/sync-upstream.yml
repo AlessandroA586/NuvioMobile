@@ -58,4 +58,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Trigger android release build
-          gh workflow run android-release.yml -f mode=publish || true
+          gh workflow run build-android-release.yml || true

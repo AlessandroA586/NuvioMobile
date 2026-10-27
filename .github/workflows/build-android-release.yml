@@ -1,0 +1,82 @@
+name: Build Android & Tablet Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Version tag/name (e.g. 0.6.5-cast.1)'
+        required: true
+        default: '0.6.5-cast.1'
+  push:
+    tags:
+      - 'v*'
+      - '*-cast*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-android:
+    name: Build & Sign Android APKs
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_PROPERTIES_BASE64: ${{ secrets.NUVIO_LOCAL_PROPERTIES_BASE64 }}
+      RELEASE_KEYSTORE_BASE64: ${{ secrets.NUVIO_RELEASE_KEYSTORE_BASE64 }}
+      RELEASE_VERSION: ${{ github.event.inputs.version_name || github.ref_name }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Configure Android Signing & Keystore
+        run: |
+          printf '%s' "${RELEASE_PROPERTIES_BASE64}" | base64 --decode > local.properties
+          keystore_path="$(pwd)/release.keystore"
+          printf '%s' "${RELEASE_KEYSTORE_BASE64}" | base64 --decode > "${keystore_path}"
+          echo "NUVIO_RELEASE_STORE_FILE=${keystore_path}" >> local.properties
+          echo "sdk.dir=${ANDROID_HOME}" >> local.properties
+
+      - name: Build Full Android & Tablet APKs
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :androidApp:assembleFullRelease -Pnuvio.app.versionName="${RELEASE_VERSION}" --stacktrace
+
+      - name: Collect Release APKs
+        run: |
+          mkdir -p release-apks
+          find androidApp/build/outputs/apk/full/release -name "*.apk" -exec cp {} release-apks/ \;
+          ls -la release-apks/
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_TAG="${RELEASE_VERSION}"
+          if ! git rev-parse --verify --quiet "refs/tags/${RELEASE_TAG}"; then
+            git tag "${RELEASE_TAG}"
+            git push origin "${RELEASE_TAG}" || true
+          fi
+
+          gh release create "${RELEASE_TAG}" release-apks/*.apk \
+            --title "Nuvio Mobile (Android & Tablet) ${RELEASE_TAG}" \
+            --notes "### Nuvio Mobile con NuvioCast para Smart TV Legacy
+- Soporte para transmisión de fuente seleccionada a Smart TV Legacy
+- Actualizaciones automáticas directas desde este repositorio
+- Sincronización continua con el repositorio oficial de Nuvio" \
+            --target "${{ github.ref_name }}" || gh release upload "${RELEASE_TAG}" release-apks/*.apk --clobber
