@@ -4,31 +4,23 @@ on:
   workflow_dispatch:
     inputs:
       version_name:
-        description: 'Version tag/name (e.g. 0.6.5-cast.1)'
+        description: 'Version tag/name'
         required: true
         type: string
         default: '0.6.5-cast.1'
-  push:
-    tags:
-      - 'v*'
-      - '*-cast*'
 
 permissions:
   contents: write
 
-concurrency:
-  group: android-release-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
-  build-android:
+  build_android:
     name: Build & Sign Android APKs
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       RELEASE_PROPERTIES_BASE64: ${{ secrets.NUVIO_LOCAL_PROPERTIES_BASE64 }}
       RELEASE_KEYSTORE_BASE64: ${{ secrets.NUVIO_RELEASE_KEYSTORE_BASE64 }}
-      RELEASE_VERSION: ${{ github.event.inputs.version_name || github.ref_name }}
+      RELEASE_VERSION: ${{ inputs.version_name }}
 
     steps:
       - name: Check out repository
@@ -68,16 +60,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          RELEASE_TAG="${RELEASE_VERSION}"
-          if ! git rev-parse --verify --quiet "refs/tags/${RELEASE_TAG}"; then
-            git tag "${RELEASE_TAG}"
-            git push origin "${RELEASE_TAG}" || true
-          fi
-
-          gh release create "${RELEASE_TAG}" release-apks/*.apk \
-            --title "Nuvio Mobile (Android & Tablet) ${RELEASE_TAG}" \
-            --notes "### Nuvio Mobile con NuvioCast para Smart TV Legacy
-- Soporte para transmisión de fuente seleccionada a Smart TV Legacy
-- Actualizaciones automáticas directas desde este repositorio
-- Sincronización continua con el repositorio oficial de Nuvio" \
-            --target "${{ github.ref_name }}" || gh release upload "${RELEASE_TAG}" release-apks/*.apk --clobber
+          gh release create "${RELEASE_VERSION}" release-apks/*.apk \
+            --title "Nuvio Mobile (Android & Tablet) ${RELEASE_VERSION}" \
+            --notes "Nuvio Mobile con soporte NuvioCast para Smart TV Legacy" \
+            --target "${{ github.ref_name }}"
