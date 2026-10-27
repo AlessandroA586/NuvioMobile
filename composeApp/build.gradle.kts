@@ -144,7 +144,7 @@ abstract class GenerateRuntimeConfigsTask : DefaultTask() {
                 |package com.nuvio.app.features.player.skip
                 |
                 |object IntroDbConfig {
-                |    const val URL = "${props.getProperty("INTRODB_API_URL", "")}" 
+                |    const val URL = "${props.getProperty("INTRODB_API_URL", "https://api.introdb.app/")}" 
                 |}
                 """.trimMargin()
             )
@@ -158,7 +158,7 @@ abstract class GenerateRuntimeConfigsTask : DefaultTask() {
                 |
                 |object ImdbEpisodeRatingsConfig {
                 |    const val IMDB_RATINGS_API_BASE_URL = "${props.getProperty("IMDB_RATINGS_API_BASE_URL", "")}" 
-                |    const val IMDB_TAPFRAME_API_BASE_URL = "${props.getProperty("IMDB_TAPFRAME_API_BASE_URL", "")}" 
+                |    const val IMDB_TAPFRAME_API_BASE_URL = "${props.getProperty("IMDB_TAPFRAME_API_BASE_URL", "https://imdb.tapframe.space/")}" 
                 |}
                 """.trimMargin()
             )
@@ -198,10 +198,10 @@ abstract class GenerateRuntimeConfigsTask : DefaultTask() {
                 |package com.nuvio.app.features.settings
                 |
                 |object CommunityConfig {
-                |    const val CONTRIBUTIONS_URL = "${props.getProperty("CONTRIBUTIONS_URL", "")}" 
+                |    const val CONTRIBUTIONS_URL = "${props.getProperty("CONTRIBUTIONS_URL", "https://gitserver.tapframe.space/api/unique-contributions")}" 
                 |    const val SUPPORTERS_WALL_URL = "${props.getProperty("SUPPORTERS_WALL_URL", "https://nuvio.tv/api/supporters/wall")}"
-                |    const val DONATIONS_BASE_URL = "${props.getProperty("DONATIONS_BASE_URL", "")}" 
-                |    const val DONATIONS_DONATE_URL = "${props.getProperty("DONATIONS_DONATE_URL", "")}" 
+                |    const val DONATIONS_BASE_URL = "${props.getProperty("DONATIONS_BASE_URL", "https://donate.nuvio.tv")}" 
+                |    const val DONATIONS_DONATE_URL = "${props.getProperty("DONATIONS_DONATE_URL", "https://donate.nuvio.tv")}" 
                 |}
                 """.trimMargin()
             )
@@ -320,11 +320,11 @@ val generateRuntimeConfigs = tasks.register<GenerateRuntimeConfigsTask>("generat
     localPropertiesFile.set(rootProject.layout.projectDirectory.file("local.properties"))
     appVersionName.set(releaseAppVersionName)
     appVersionCode.set(releaseAppVersionCode)
-    supabaseUrl.set(runtimeConfigValue("NUVIO_SUPABASE_URL"))
-    supabaseAnonKey.set(runtimeConfigValue("NUVIO_SUPABASE_ANON_KEY"))
-    supabaseFallbackUrl.set(runtimeConfigValue("NUVIO_SUPABASE_FALLBACK_URL"))
-    sentryDsn.set(runtimeConfigValue("SENTRY_DSN"))
-    tmdbApiKey.set(runtimeConfigValue("TMDB_API_KEY"))
+    supabaseUrl.set(runtimeConfigValue("NUVIO_SUPABASE_URL", "https://api.nuvio.tv"))
+    supabaseAnonKey.set(runtimeConfigValue("NUVIO_SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgxNTIxMzQ2LCJleHAiOjE5MzkyMDEzNDZ9.tmQaj682pwzehpqlgCDMnySOqiUvpgRbrE43T4VJpDI"))
+    supabaseFallbackUrl.set(runtimeConfigValue("NUVIO_SUPABASE_FALLBACK_URL", "https://api-two.nuvioapp.space"))
+    sentryDsn.set(runtimeConfigValue("SENTRY_DSN", "https://a4f60d0d86876166059c050511332924@o4511671534354432.ingest.us.sentry.io/4511676526166016"))
+    tmdbApiKey.set(runtimeConfigValue("TMDB_API_KEY", "01926d2187b6a5d861eefc750e9df3e3"))
     sentryEnvironment.set(
         when {
             requestedGradleTasks.any { "benchmark" in it } -> "benchmark"
