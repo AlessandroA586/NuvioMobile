@@ -39,11 +39,17 @@ jobs:
 
       - name: Configure Android Signing & Keystore
         run: |
-          printf '%s' "${RELEASE_PROPERTIES_BASE64}" | base64 --decode > local.properties
-          keystore_path="$(pwd)/release.keystore"
+          keystore_path="${RUNNER_TEMP}/nuvio-release.jks"
           printf '%s' "${RELEASE_KEYSTORE_BASE64}" | base64 --decode > "${keystore_path}"
-          echo "NUVIO_RELEASE_STORE_FILE=${keystore_path}" >> local.properties
-          echo "sdk.dir=${ANDROID_HOME}" >> local.properties
+          printf '%s' "${RELEASE_PROPERTIES_BASE64}" | base64 --decode | tr -d '\r' > local.properties
+          sed -i -E '/^[[:space:]]*(sdk\.dir|NUVIO_RELEASE_STORE_FILE)[[:space:]]*=/d' local.properties
+          printf '\nNUVIO_RELEASE_STORE_FILE=%s\nsdk.dir=%s\n' "${keystore_path}" "${ANDROID_HOME}" >> local.properties
+          
+          # Inject direct environment variables as safe fallback
+          echo "NUVIO_RELEASE_STORE_FILE=${keystore_path}" >> $GITHUB_ENV
+          echo "NUVIO_RELEASE_STORE_PASSWORD=NuvioCastSecureKey2026!" >> $GITHUB_ENV
+          echo "NUVIO_RELEASE_KEY_ALIAS=nuviocast" >> $GITHUB_ENV
+          echo "NUVIO_RELEASE_KEY_PASSWORD=NuvioCastSecureKey2026!" >> $GITHUB_ENV
 
       - name: Build Full Android & Tablet APKs
         run: |
