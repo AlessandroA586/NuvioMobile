@@ -1,8 +1,8 @@
-name: Auto Sync Upstream & Build
+name: Auto Sync Upstream Releases & Build
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # Every 6 hours
+    - cron: '0 */6 * * *' # Check every 6 hours
   workflow_dispatch: # Allows manual trigger from GitHub Actions tab
 
 permissions:
@@ -10,8 +10,8 @@ permissions:
   actions: write
 
 jobs:
-  sync:
-    name: Sync with Official NuvioMobile
+  sync_release:
+    name: Check Upstream Official Release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Fork
@@ -25,37 +25,56 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Add Upstream Remote
-        run: |
-          git remote add upstream https://github.com/NuvioMedia/NuvioMobile.git
-          git fetch upstream cmp-rewrite
-
-      - name: Check for New Upstream Commits
-        id: check_upstream
-        run: |
-          LOCAL_COMMIT=$(git rev-parse HEAD)
-          UPSTREAM_COMMIT=$(git rev-parse upstream/cmp-rewrite)
-          echo "Local commit: $LOCAL_COMMIT"
-          echo "Upstream commit: $UPSTREAM_COMMIT"
-          if git merge-base --is-ancestor upstream/cmp-rewrite HEAD; then
-            echo "Already up to date with upstream."
-            echo "has_updates=false" >> $GITHUB_OUTPUT
-          else
-            echo "New updates found in upstream."
-            echo "has_updates=true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Merge Upstream into Fork
-        if: steps.check_upstream.outputs.has_updates == 'true'
-        run: |
-          # Merge upstream changes preserving our isolated cast implementation
-          git merge upstream/cmp-rewrite -m "chore(sync): auto-merge upstream updates from NuvioMedia"
-          git push origin cmp-rewrite
-
-      - name: Trigger Automatic Build & Release
-        if: steps.check_upstream.outputs.has_updates == 'true'
+      - name: Fetch Latest Upstream Release Tag
+        id: check_release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Trigger android release build
-          gh workflow run build-android-release.yml || true
+          RELEASE_JSON=$(gh api repos/NuvioMedia/NuvioMobile/releases/latest || true)
+          UPSTREAM_TAG=$(echo "${RELEASE_JSON}" | jq -r '.tag_name // empty')
+
+          if [ -z "${UPSTREAM_TAG}" ] || [ "${UPSTREAM_TAG}" = "null" ]; then
+            echo "No upstream release found or API request failed."
+            echo "has_new_release=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Latest upstream release tag: ${UPSTREAM_TAG}"
+          echo "upstream_tag=${UPSTREAM_TAG}" >> $GITHUB_OUTPUT
+
+          git remote add upstream https://github.com/NuvioMedia/NuvioMobile.git || true
+          git fetch upstream tag "${UPSTREAM_TAG}" --no-tags
+
+          TAG_COMMIT=$(git rev-parse "tags/${UPSTREAM_TAG}^{commit}")
+          echo "Tag commit: ${TAG_COMMIT}"
+
+          if git merge-base --is-ancestor "${TAG_COMMIT}" HEAD; then
+            echo "Already up-to-date with upstream release ${UPSTREAM_TAG}."
+            echo "has_new_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "New upstream release detected: ${UPSTREAM_TAG}!"
+            echo "has_new_release=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Merge Upstream Release into Fork
+        if: steps.check_release.outputs.has_new_release == 'true'
+        run: |
+          UPSTREAM_TAG="${{ steps.check_release.outputs.upstream_tag }}"
+          echo "Merging upstream release ${UPSTREAM_TAG}..."
+          git merge "tags/${UPSTREAM_TAG}" -m "chore(sync): auto-merge official upstream release ${UPSTREAM_TAG}" --no-edit || {
+            echo "Merge conflict encountered with upstream release ${UPSTREAM_TAG}."
+            git merge --abort
+            exit 1
+          }
+          git push origin cmp-rewrite
+
+      - name: Trigger Build & Release for New Version
+        if: steps.check_release.outputs.has_new_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          UPSTREAM_TAG="${{ steps.check_release.outputs.upstream_tag }}"
+          CLEAN_VERSION="${UPSTREAM_TAG#v}"
+          TARGET_VERSION="${CLEAN_VERSION}-cast.1"
+          echo "Triggering build for ${TARGET_VERSION}..."
+          gh workflow run build-android-release.yml -f version_name="${TARGET_VERSION}"
