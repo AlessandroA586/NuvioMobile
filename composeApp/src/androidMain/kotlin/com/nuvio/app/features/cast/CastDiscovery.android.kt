@@ -3,6 +3,7 @@ package com.nuvio.app.features.cast
 import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
+import android.net.wifi.WifiManager
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +28,7 @@ actual object CastDiscovery {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var scanJob: Job? = null
     private val activeNsdListeners = mutableListOf<NsdManager.DiscoveryListener>()
+    private var multicastLock: WifiManager.MulticastLock? = null
 
     fun initialize(context: Context) {
         appContext = context.applicationContext
@@ -34,6 +36,13 @@ actual object CastDiscovery {
 
     actual fun startDiscovery(onDeviceFound: (CastDevice) -> Unit) {
         stopDiscovery()
+        try {
+            val wifi = appContext?.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+            multicastLock = wifi?.createMulticastLock("NuvioCastMulticastLock")?.apply {
+                setReferenceCounted(true)
+                acquire()
+            }
+        } catch (_: Exception) {}
         startNsdDiscovery(onDeviceFound)
         startSubnetScan(onDeviceFound)
     }
@@ -41,6 +50,12 @@ actual object CastDiscovery {
     actual fun stopDiscovery() {
         scanJob?.cancel()
         scanJob = null
+        try {
+            if (multicastLock?.isHeld == true) {
+                multicastLock?.release()
+            }
+        } catch (_: Exception) {}
+        multicastLock = null
 
         val context = appContext
         if (context != null) {
@@ -162,7 +177,7 @@ actual object CastDiscovery {
         var socket: Socket? = null
         try {
             socket = Socket()
-            socket.connect(InetSocketAddress(ip, port), 200)
+            socket.connect(InetSocketAddress(ip, port), 400)
 
             // Connection succeeded! Query device status/info
             if (port == 8765 || port == 8920) {
@@ -175,27 +190,40 @@ actual object CastDiscovery {
 
                 val line1 = reader.readLine()
                 if (line1 != null && line1.contains("200")) {
+                    var contentLength = 0
                     var line: String?
                     while (reader.readLine().also { line = it } != null) {
                         if (line.isNullOrEmpty()) break
+                        if (line!!.lowercase().startsWith("content-length:")) {
+                            contentLength = line!!.substringAfter(':').trim().toIntOrNull() ?: 0
+                        }
                     }
-                    val body = reader.readText()
-                    if (body.contains("\"status\"") || body.contains("\"device_name\"")) {
-                        val json = runCatching { JSONObject(body) }.getOrNull()
-                        val devName = json?.optString("device_name", "")?.takeIf { it.isNotBlank() } ?: "Nuvio TV ($ip)"
-                        val devId = json?.optString("device_id", "")?.takeIf { it.isNotBlank() } ?: "tv_${ip}_$port"
-                        val device = CastDevice(
-                            id = devId,
-                            name = devName,
-                            host = ip,
-                            port = port,
-                            model = "Nuvio Legacy TV",
-                            isLegacy = true,
-                            isManual = false,
-                        )
-                        onDeviceFound(device)
-                        return
+                    val body = if (contentLength > 0) {
+                        val buffer = CharArray(contentLength)
+                        var readTotal = 0
+                        while (readTotal < contentLength) {
+                            val r = reader.read(buffer, readTotal, contentLength - readTotal)
+                            if (r < 0) break
+                            readTotal += r
+                        }
+                        String(buffer, 0, readTotal)
+                    } else {
+                        try { reader.readText() } catch (_: Exception) { "" }
                     }
+                    val json = runCatching { JSONObject(body) }.getOrNull()
+                    val devName = json?.optString("device_name", "")?.takeIf { it.isNotBlank() } ?: "Nuvio TV ($ip)"
+                    val devId = json?.optString("device_id", "")?.takeIf { it.isNotBlank() } ?: "tv_${ip}_$port"
+                    val device = CastDevice(
+                        id = devId,
+                        name = devName,
+                        host = ip,
+                        port = port,
+                        model = "Nuvio Legacy TV",
+                        isLegacy = true,
+                        isManual = false,
+                    )
+                    onDeviceFound(device)
+                    return
                 }
             } else if (port == 8008) {
                 // DIAL / Google Cast discovery on port 8008
@@ -233,7 +261,24 @@ actual object CastDiscovery {
     private fun getLocalSubnetPrefixes(): List<String> {
         val prefixes = mutableListOf<String>()
         try {
-            val interfaces = NetworkInterface.getNetworkInterfaces() ?: return emptyList()
+            val wifi = appContext?.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+            val ipInt = wifi?.connectionInfo?.ipAddress ?: 0
+            if (ipInt != 0) {
+                val ipStr = String.format(
+                    java.util.Locale.US,
+                    "%d.%d.%d.",
+                    ipInt and 0xff,
+                    ipInt shr 8 and 0xff,
+                    ipInt shr 16 and 0xff
+                )
+                if (!prefixes.contains(ipStr)) {
+                    prefixes.add(ipStr)
+                }
+            }
+        } catch (_: Exception) {}
+
+        try {
+            val interfaces = NetworkInterface.getNetworkInterfaces() ?: return prefixes
             for (intf in interfaces) {
                 if (intf.isLoopback || !intf.isUp) continue
                 val addrs = intf.inetAddresses

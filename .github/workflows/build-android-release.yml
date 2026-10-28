@@ -7,7 +7,7 @@ on:
         description: 'Version tag/name'
         required: true
         type: string
-        default: '0.6.5-cast.4'
+        default: '0.6.5-cast.5'
 
 permissions:
   contents: write
