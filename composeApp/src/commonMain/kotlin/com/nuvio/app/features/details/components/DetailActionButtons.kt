@@ -19,6 +19,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.CastConnected
+import androidx.compose.runtime.collectAsState
+import com.nuvio.app.features.cast.CastDeviceSheet
+import com.nuvio.app.features.cast.CastManager
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CheckCircleOutline
@@ -257,6 +262,9 @@ fun DetailActions(
     onSaveClick: () -> Unit,
     onSaveLongClick: (() -> Unit)?,
 ) {
+    val selectedDevice by CastManager.selectedDevice.collectAsState()
+    var showCastSheet by remember { mutableStateOf(false) }
+
     val shuffleAction = onShuffleClick?.let { onClick ->
         DetailSecondaryAction(
             label = stringResource(if (shuffleEnabled) Res.string.shuffle_stop else Res.string.random_episode_title),
@@ -271,6 +279,14 @@ fun DetailActions(
         pinnedAction = shuffleAction?.takeIf { shuffleEnabled },
         secondaryActions = buildList {
             if (!shuffleEnabled) shuffleAction?.let(::add)
+            add(
+                DetailSecondaryAction(
+                    label = if (selectedDevice != null) "NuvioCast conectado" else "NuvioCast",
+                    icon = if (selectedDevice != null) Icons.Default.CastConnected else Icons.Default.Cast,
+                    isActive = selectedDevice != null,
+                    onClick = { showCastSheet = true },
+                ),
+            )
             add(
                 DetailSecondaryAction(
                     label = stringResource(if (isWatched) Res.string.hero_mark_unwatched else Res.string.hero_mark_watched),
@@ -293,6 +309,10 @@ fun DetailActions(
         onPlayClick = onPlayClick,
         onPlayLongClick = onPlayLongClick,
     )
+
+    if (showCastSheet) {
+        CastDeviceSheet(onDismiss = { showCastSheet = false })
+    }
 }
 
 @Composable

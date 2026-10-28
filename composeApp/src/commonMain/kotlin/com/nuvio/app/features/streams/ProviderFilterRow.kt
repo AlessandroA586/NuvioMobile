@@ -84,7 +84,6 @@ internal fun ProviderFilterRow(
             .padding(contentPadding),
         horizontalArrangement = Arrangement.spacedBy(spacing),
     ) {
-        com.nuvio.app.features.cast.CastIconButton()
         if (onRefresh != null) {
             refreshChip(isRefreshing, onRefresh)
         }
