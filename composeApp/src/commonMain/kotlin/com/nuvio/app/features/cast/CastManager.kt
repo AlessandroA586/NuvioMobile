@@ -27,11 +27,54 @@ object CastManager {
     private val _isConnecting = MutableStateFlow(false)
     val isConnecting: StateFlow<Boolean> = _isConnecting.asStateFlow()
 
+    private val _isScanning = MutableStateFlow(false)
+    val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
+
+    private var storageLoaded = false
+
+    fun initStorage() {
+        if (storageLoaded) return
+        storageLoaded = true
+        val savedManual = runCatching { CastStorage.loadManualDevices() }.getOrDefault(emptyList())
+        if (savedManual.isNotEmpty()) {
+            val current = _availableDevices.value.toMutableList()
+            for (saved in savedManual) {
+                if (current.none { it.id == saved.id || (it.host == saved.host && it.port == saved.port) }) {
+                    current.add(saved)
+                }
+            }
+            _availableDevices.value = current
+        }
+    }
+
+    fun startDiscovery() {
+        initStorage()
+        _isScanning.value = true
+        CastDiscovery.startDiscovery { device ->
+            registerDevice(device)
+        }
+        // Automatically stop the scanning indicator after 8 seconds
+        scope.launch {
+            delay(8000)
+            _isScanning.value = false
+        }
+    }
+
+    fun stopDiscovery() {
+        _isScanning.value = false
+        CastDiscovery.stopDiscovery()
+    }
+
     fun registerDevice(device: CastDevice) {
         val current = _availableDevices.value.toMutableList()
-        val index = current.indexOfFirst { it.id == device.id || it.host == device.host }
+        val index = current.indexOfFirst { it.id == device.id || (it.host == device.host && it.port == device.port) }
         if (index >= 0) {
-            current[index] = device
+            val existing = current[index]
+            // Keep isManual flag if previously set, but update name and model
+            current[index] = device.copy(
+                isManual = existing.isManual || device.isManual,
+                name = if (device.name.isNotBlank()) device.name else existing.name,
+            )
         } else {
             current.add(device)
         }
@@ -46,25 +89,52 @@ object CastManager {
         }
     }
 
-    fun addManualDevice(host: String, port: Int = 8920, name: String = "Smart TV (Manual)") {
+    fun addManualDevice(host: String, port: Int = 8765, name: String = "Smart TV (Manual)") {
         val cleanHost = host.trim()
         if (cleanHost.isBlank()) return
         val device = CastDevice(
-            id = "manual_$cleanHost",
+            id = "manual_${cleanHost}_$port",
             name = name,
             host = cleanHost,
             port = port,
             model = "Nuvio Legacy TV",
             isLegacy = true,
+            isManual = true,
         )
         registerDevice(device)
         selectDevice(device)
+        saveManualDevices()
+    }
+
+    fun removeDevice(device: CastDevice) {
+        val current = _availableDevices.value.toMutableList()
+        current.removeAll { it.id == device.id || (it.host == device.host && it.port == device.port) }
+        _availableDevices.value = current
+        if (_selectedDevice.value?.id == device.id) {
+            selectDevice(null)
+        }
+        saveManualDevices()
+    }
+
+    fun clearManualDevices() {
+        val current = _availableDevices.value.filter { !it.isManual && !it.id.startsWith("manual_") }
+        _availableDevices.value = current
+        if (_selectedDevice.value?.isManual == true || _selectedDevice.value?.id?.startsWith("manual_") == true) {
+            selectDevice(null)
+        }
+        saveManualDevices()
+    }
+
+    private fun saveManualDevices() {
+        val manualOnly = _availableDevices.value.filter { it.isManual || it.id.startsWith("manual_") }
+        runCatching { CastStorage.saveManualDevices(manualOnly) }
     }
 
     fun castStream(
         title: String,
         streamUrl: String,
         imdbId: String? = null,
+        videoId: String? = null,
         type: String = "movie",
         season: Int? = null,
         episode: Int? = null,
@@ -88,6 +158,7 @@ object CastManager {
                 action = "PLAY_SOURCE",
                 title = title,
                 imdbId = imdbId,
+                videoId = videoId,
                 type = type,
                 season = season,
                 episode = episode,
@@ -96,6 +167,7 @@ object CastManager {
                 sourceName = sourceName,
                 headers = headers,
                 startTimeSeconds = startTimeSeconds,
+                positionMs = startTimeSeconds * 1000,
             )
 
             val result = CastClient.sendMedia(device, payload)
@@ -106,6 +178,7 @@ object CastManager {
                 _playbackState.value = CastStatusResponse(
                     state = CastPlaybackState.PLAYING,
                     positionSeconds = startTimeSeconds,
+                    positionMs = startTimeSeconds * 1000,
                     title = title,
                     sourceName = sourceName,
                 )
@@ -128,7 +201,7 @@ object CastManager {
     fun resume() {
         val device = _selectedDevice.value ?: return
         scope.launch {
-            CastClient.sendCommand(device, CastControlCommand("PLAY"))
+            CastClient.sendCommand(device, CastControlCommand("RESUME"))
             _playbackState.value = _playbackState.value.copy(state = CastPlaybackState.PLAYING)
         }
     }
@@ -136,8 +209,8 @@ object CastManager {
     fun seekTo(seconds: Long) {
         val device = _selectedDevice.value ?: return
         scope.launch {
-            CastClient.sendCommand(device, CastControlCommand("SEEK", positionSeconds = seconds))
-            _playbackState.value = _playbackState.value.copy(positionSeconds = seconds)
+            CastClient.sendCommand(device, CastControlCommand("SEEK", positionSeconds = seconds, positionMs = seconds * 1000))
+            _playbackState.value = _playbackState.value.copy(positionSeconds = seconds, positionMs = seconds * 1000)
         }
     }
 

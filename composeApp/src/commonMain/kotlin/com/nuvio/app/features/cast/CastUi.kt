@@ -21,6 +21,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.CastConnected
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -33,6 +35,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -94,12 +97,23 @@ fun CastDeviceSheet(
     val devices by CastManager.availableDevices.collectAsState()
     val selectedDevice by CastManager.selectedDevice.collectAsState()
     val playbackState by CastManager.playbackState.collectAsState()
+    val isScanning by CastManager.isScanning.collectAsState()
     var manualIp by remember { mutableStateOf("") }
     var isAddingManual by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    // Trigger local network discovery when the sheet opens
+    LaunchedEffect(Unit) {
+        CastManager.startDiscovery()
+    }
+
+    val hasManualDevices = devices.any { it.isManual || it.id.startsWith("manual_") }
+
     NuvioModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            CastManager.stopDiscovery()
+            onDismiss()
+        },
         sheetState = sheetState,
     ) {
         Column(
@@ -112,12 +126,34 @@ fun CastDeviceSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "Transmitir a Smart TV",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Transmitir a Smart TV",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(
+                        onClick = { CastManager.startDiscovery() },
+                        modifier = Modifier.size(28.dp),
+                    ) {
+                        if (isScanning) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = "Buscar dispositivos",
+                                tint = Color.LightGray,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                }
                 if (selectedDevice != null) {
                     Text(
                         text = "Desconectar",
@@ -171,7 +207,7 @@ fun CastDeviceSheet(
                             )
                             if (playbackState.state != CastPlaybackState.IDLE && playbackState.state != CastPlaybackState.STOPPED) {
                                 Text(
-                                    text = "Estado: ${playbackState.state.name} (${playbackState.positionSeconds}s)",
+                                    text = "Estado: ${playbackState.state.name} (${playbackState.effectivePositionSeconds}s)",
                                     color = MaterialTheme.colorScheme.primary,
                                     fontSize = 11.sp,
                                 )
@@ -182,12 +218,42 @@ fun CastDeviceSheet(
                 Spacer(modifier = Modifier.height(NuvioTokens.Space.s16))
             }
 
-            Text(
-                text = "Dispositivos en la misma red Wi-Fi",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray,
-                modifier = Modifier.padding(bottom = NuvioTokens.Space.s8),
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Dispositivos en la misma red Wi-Fi",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                    )
+                    if (isScanning) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "(Buscando...)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 11.sp,
+                        )
+                    }
+                }
+
+                if (hasManualDevices) {
+                    Text(
+                        text = "Borrar manuales",
+                        color = Color.LightGray.copy(alpha = 0.6f),
+                        fontSize = 11.sp,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .clickable { CastManager.clearManualDevices() }
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(NuvioTokens.Space.s8))
 
             if (devices.isEmpty()) {
                 Box(
@@ -196,11 +262,27 @@ fun CastDeviceSheet(
                         .padding(vertical = NuvioTokens.Space.s16),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = "Buscando pantallas Nuvio Legacy...",
-                        color = Color.LightGray,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                    if (isScanning) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Buscando pantallas en la red...",
+                                color = Color.LightGray,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = "No se detectaron pantallas. Agrega una IP abajo.",
+                            color = Color.LightGray,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                 }
             } else {
                 LazyColumn(
@@ -209,6 +291,7 @@ fun CastDeviceSheet(
                 ) {
                     items(devices) { device ->
                         val isCurrent = device.id == selectedDevice?.id
+                        val isManualDevice = device.isManual || device.id.startsWith("manual_")
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -234,11 +317,37 @@ fun CastDeviceSheet(
                                     color = Color.White,
                                     fontWeight = FontWeight.Medium,
                                 )
-                                Text(
-                                    text = "${device.host}:${device.port}",
-                                    color = Color.Gray,
-                                    fontSize = 11.sp,
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "${device.host}:${device.port}",
+                                        color = Color.Gray,
+                                        fontSize = 11.sp,
+                                    )
+                                    if (isManualDevice) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "• Manual",
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Delete button for manually added devices
+                            if (isManualDevice) {
+                                IconButton(
+                                    onClick = { CastManager.removeDevice(device) },
+                                    modifier = Modifier.size(32.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Close,
+                                        contentDescription = "Borrar opción manual",
+                                        tint = Color.LightGray.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
                             }
                         }
                     }

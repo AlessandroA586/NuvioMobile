@@ -47,6 +47,8 @@ import com.nuvio.app.features.profiles.ProfileStorage
 import com.nuvio.app.features.details.SeasonViewModeStorage
 import com.nuvio.app.features.search.DiscoverSelectionStorage
 import com.nuvio.app.features.search.SearchHistoryStorage
+import com.nuvio.app.features.cast.CastDiscovery
+import com.nuvio.app.features.cast.CastStorage
 import com.nuvio.app.features.settings.SentrySettingsStorage
 import com.nuvio.app.features.settings.AppIconPlatform
 import com.nuvio.app.features.settings.ThemeSettingsStorage
@@ -84,6 +86,9 @@ open class MainActivity : AppCompatActivity() {
             ),
         )
         ThemeSettingsStorage.initialize(applicationContext)
+        CastStorage.initialize(applicationContext)
+        CastDiscovery.initialize(applicationContext)
+        com.nuvio.app.features.cast.CastManager.initStorage()
         AppIconPlatform.initialize(applicationContext)
         SentrySettingsStorage.initialize(applicationContext)
         SentryInitializer.start(application)
