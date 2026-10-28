@@ -61,7 +61,7 @@ jobs:
       - name: Build Full Android & Tablet APKs
         run: |
           chmod +x ./gradlew
-          ./gradlew :androidApp:assembleFullRelease -Pnuvio.app.versionName="${RELEASE_VERSION}" --stacktrace
+          ./gradlew :androidApp:assembleFullRelease -Pnuvio.app.versionName="${RELEASE_VERSION}" --no-daemon --stacktrace
 
       - name: Collect Release APKs
         run: |
